@@ -1,16 +1,16 @@
 # Baseline Methods for SuctionNet-1Billion
 
-Baseline methods in RA-L paper "SuctionNet-1Billion:  A  Large-Scale  Benchmark  for  Suction  Grasping" 
+You can use your own camera on baseline methods in RA-L paper "SuctionNet-1Billion:  A  Large-Scale  Benchmark  for  Suction  Grasping" 
 
-![Image Title](https://github.com/graspnet/suctionnet-baseline/blob/master/framework3.jpg)
 
-## Dataset
+## Camera
 
-Download data and labels from our [SuctionNet webpage](https://graspnet.net/suction).
+Only realsense camera and kinect camera are required
 
 ## Environment
 
 The code has been tested with `CUDA 10.1` and `pytorch 1.4.0` on ubuntu `16.04`
+
 
 ## Training Prerequisites
 
