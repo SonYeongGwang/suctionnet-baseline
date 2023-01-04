@@ -29,7 +29,7 @@ cd neural_network
 For inference, use the following command: 
 
 ```
-python inference.py \
+python inference.py \ # inference_kinect.py or inference_realsense.py
 --model model_name \
 --checkpoint_path /path/to/the/saved/model/weights \
 --camera realsense \ # realsense or kinect
@@ -40,7 +40,7 @@ python inference.py \
 or modify [scripts/deeplabv3plus_inference_kinect.sh](https://github.com/heechan99/suctionnet-baseline/blob/master/neural_network/deeplabv3plus_inference_kinect.sh), [scripts/deeplabv3plus_inference_realsense.sh](https://github.com/heechan99/suctionnet-baseline/blob/master/neural_network/inference_realsense.py), to inference with your kinect and realsense camera.
 
 
-## Pre-trained Models
+### Pre-trained Models
 
 Graspnet/suctionnet-baseline provides models [realsense](https://drive.google.com/file/d/18TbctdhpNXEKLYDWFzI9cT1Wnhe-tn9h/view?usp=sharing), [kinect](https://drive.google.com/file/d/1gOz_KmIugBGUtpcyHAgYO01T0h5ZqOl9/view?usp=sharing), [Fully Conv Net for realsense](https://drive.google.com/file/d/1hgYYIvw5Xy-r5C8IitKizswtuMV_EqPP/view?usp=sharing). Just download it and put in weight file
 
