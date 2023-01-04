@@ -45,7 +45,7 @@ or modify [scripts/deeplabv3plus_inference_kinect.sh](https://github.com/heechan
 Graspnet/suctionnet-baseline provides models [realsense](https://drive.google.com/file/d/18TbctdhpNXEKLYDWFzI9cT1Wnhe-tn9h/view?usp=sharing), [kinect](https://drive.google.com/file/d/1gOz_KmIugBGUtpcyHAgYO01T0h5ZqOl9/view?usp=sharing), [Fully Conv Net for realsense](https://drive.google.com/file/d/1hgYYIvw5Xy-r5C8IitKizswtuMV_EqPP/view?usp=sharing). Just download it and put in weight file
 
 
-### Normal STD
+## Normal STD
 
 Change the directory to `normal_std` by:
 
