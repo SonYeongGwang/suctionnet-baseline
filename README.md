@@ -35,8 +35,7 @@ python inference.py \
 --save_visu # whether to save the visualizations
 ```
 
-or modify [scripts/deeplabv3plus_inference.sh](https://github.com/heechan99/suctionnet-baseline/blob/master/neural_network/deeplabv3plus_inference_kinect.sh), [scripts/deeplabv3plus_inference_depth.sh](https://github.com/graspnet/suctionnet-baseline/blob/master/neural_network/scripts/deeplabv3plus_inference_depth.sh), [scripts/convnet_inference.sh](https://github.com/graspnet/suctionnet-baseline/blob/master/neural_network/scripts/convnet_inference.sh) to inference with our RGB-D model, depth model and fully convolutional network (FCN) model.
-
+or modify [scripts/deeplabv3plus_inference_kinect.sh](https://github.com/heechan99/suctionnet-baseline/blob/master/neural_network/deeplabv3plus_inference_kinect.sh), [scripts/deeplabv3plus_inference_realsense.sh](https://github.com/heechan99/suctionnet-baseline/blob/master/neural_network/inference_realsense.py), to inference with your kinect and realsense camera.
 ### Normal STD
 
 Change the directory to `normal_std` by:
