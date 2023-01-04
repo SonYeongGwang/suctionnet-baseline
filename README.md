@@ -45,29 +45,6 @@ or modify [scripts/deeplabv3plus_inference_kinect.sh](https://github.com/heechan
 Graspnet/suctionnet-baseline provides models [realsense](https://drive.google.com/file/d/18TbctdhpNXEKLYDWFzI9cT1Wnhe-tn9h/view?usp=sharing), [kinect](https://drive.google.com/file/d/1gOz_KmIugBGUtpcyHAgYO01T0h5ZqOl9/view?usp=sharing), [Fully Conv Net for realsense](https://drive.google.com/file/d/1hgYYIvw5Xy-r5C8IitKizswtuMV_EqPP/view?usp=sharing). Just download it and put in weight file
 
 
-## Normal STD
-
-Change the directory to `normal_std` by:
-
-```
-cd normal_std
-```
-
-This method does not need to train, you can directly inference with the following command:
-
-```
-python inference.py 
---split test_seen \ # can be test, test_seen, test_similar, test_novel
---camera realsense \ # realsense or kinect
---save_root /path/to/save/the/inference/results \
---dataset_root /path/to/SuctionNet/dataset \
---save_visu
-```
-
-or modify [inference.sh](https://github.com/graspnet/suctionnet-baseline/blob/master/normal_std/inference.sh) and run `sh inference.sh`
-
-
-
 ## Citation
 
 
