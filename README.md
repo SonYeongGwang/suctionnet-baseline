@@ -10,9 +10,11 @@ Only realsense camera and kinect camera are required
 ## Environment
 
 The code has been tested with `CUDA 10.1` and `pytorch 1.4.0` on ubuntu `16.04`
+
 Others are on requirement.txt
 
 *torch/torch vision install
+
 pip install torch==1.7.1+cu110 torchvision==0.8.2+cu110 -f https://download.pytorch.org/whl/torch_stable.html
 
 ## Usage
