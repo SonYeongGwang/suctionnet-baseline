@@ -9,7 +9,7 @@ Only realsense camera and kinect camera are required
 
 ## Environment
 
-The code has been tested with `CUDA 10.1` and `pytorch 1.4.0` on ubuntu `16.04`
+The code has been tested with `CUDA 11.2` and `pytorch 1.7.0` on ubuntu `16.04`
 
 Others are on requirement.txt
 
