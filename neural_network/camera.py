@@ -39,7 +39,7 @@ class IntelCamera:
         self.device_name = self.device_name + "_" + device.get_info(rs.camera_info.serial_number)
 
         if self.device_product_line == 'L500':
-            self.config.enable_stream(rs.stream.color, 960, 540, rs.format.bgr8, 30)
+            self.config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
             self.config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
         
         else:
@@ -59,7 +59,7 @@ class IntelCamera:
         self.ppy = self.color_intrinsic.ppy
 
         if self.device_product_line == 'L500':
-            self.intrinsic_o3d = o3d.camera.PinholeCameraIntrinsic(960, 540, self.fx, self.fy, self.ppx, self.ppy)
+            self.intrinsic_o3d = o3d.camera.PinholeCameraIntrinsic(640, 480, self.fx, self.fy, self.ppx, self.ppy)
         
         else:
             self.intrinsic_o3d = o3d.camera.PinholeCameraIntrinsic(640, 480, self.fx, self.fy, self.ppx, self.ppy)

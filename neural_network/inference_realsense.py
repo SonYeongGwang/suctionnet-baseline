@@ -30,7 +30,7 @@ from PIL import Image
 
 from camera import IntelCamera, KinectCamera
 import matplotlib.pyplot as plt
-
+import socket
 
 
 
@@ -199,12 +199,14 @@ def get_suction_from_heatmap(depth_img, heatmap, camera_info):
     
     point_cloud = point_cloud.reshape(-1, 3)
     pc_o3d = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(point_cloud))
+    o3d.visualization.draw_geometries([pc_o3d])
     pc_voxel_sampled = pc_o3d.voxel_down_sample(0.003)
     points_sampled = np.array(pc_voxel_sampled.points).astype(np.float32)
     points_sampled = np.concatenate([suction_points, points_sampled], axis=0)
     pc_voxel_sampled.points = o3d.utility.Vector3dVector(points_sampled)
     pc_voxel_sampled.estimate_normals(o3d.geometry.KDTreeSearchParamRadius(0.015), fast_normal_computation=False)
-    pc_voxel_sampled.orient_normals_to_align_with_direction(np.array([0., 0., -1.]))
+    # pc_voxel_sampled.orient_normals_to_align_with_direction(np.array([0., 0., -1.]))
+    pc_voxel_sampled.orient_normals_towards_camera_location()
     pc_voxel_sampled.normalize_normals()
     pc_normals = np.array(pc_voxel_sampled.normals).astype(np.float32)
     suction_normals = pc_normals[:suction_points.shape[0], :]
@@ -214,11 +216,15 @@ def get_suction_from_heatmap(depth_img, heatmap, camera_info):
 
     suction_arr = np.concatenate([suction_scores[..., np.newaxis], suction_normals, suction_points], axis=-1)
 
-    print("normal_vector : ", suction_normals[0])
-    print("normal_vector : ", suction_points[0])
+    print("suction_arr")
+    print(np.shape(suction_arr))
+    print(suction_arr[:, 0])
+
+    # print("suction_normals : ", suction_normals[0])
+    # print("suction_points : ", suction_points[0])
 
 
-    return suction_arr, idx0, idx1
+    return suction_arr, idx0, idx1, suction_normals[0], suction_points[0]
 
 def inference_one_view(rgb_file, depth_file, scene_idx, anno_idx):
     
@@ -239,7 +245,7 @@ def inference_one_view(rgb_file, depth_file, scene_idx, anno_idx):
 
 
     rgb = rgb_file.astype(np.float32) / 255.0
-    depth = depth_file.astype(np.float32) / 1000.0
+    depth = depth_file.astype(np.float32) *0.00025
 
 
     rgb, depth = torch.from_numpy(rgb), torch.from_numpy(depth)
@@ -274,7 +280,7 @@ def inference_one_view(rgb_file, depth_file, scene_idx, anno_idx):
     kernel = torch.from_numpy(kernel).unsqueeze(0).unsqueeze(0)
     heatmap = F.conv2d(heatmap, kernel, padding=(kernel.shape[2] // 2, kernel.shape[3] // 2)).squeeze().numpy()
 
-    suctions, idx0, idx1 = get_suction_from_heatmap(depth.numpy(), heatmap, camera_info)
+    suctions, idx0, idx1, suction_normal, suction_point = get_suction_from_heatmap(depth.numpy(), heatmap, camera_info)
 
     save_dir = os.path.join(SAVE_PATH, camera, 'suction')
     os.makedirs(save_dir, exist_ok=True)
@@ -366,7 +372,7 @@ def inference_one_view(rgb_file, depth_file, scene_idx, anno_idx):
         img_final = cv2.imread(final_file, cv2.IMREAD_COLOR)
 
 
-        return final_file
+        return final_file, suction_normal, suction_point
         
 
 
@@ -377,62 +383,84 @@ def inference(scene_idx, anno_idx):
 
     anno_idx = 1
 
-    final_file = inference_one_view(rgb_file, depth_file, scene_idx, anno_idx)
+    final_file, suction_normal, suction_point = inference_one_view(rgb_file, depth_file, scene_idx, anno_idx)
 
-    return final_file
+    return final_file, suction_normal, suction_point
 
 
 
 if __name__ == '__main__':
 
- 
+    # set client information
+    SERVER_IP = '192.168.1.48'
+    SERVER_PORT = 9999
+    SIZE = 1024
+    SERVER_ADDR = (SERVER_IP, SERVER_PORT)
+
+    DATASock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    data_connection = DATASock.connect_ex(SERVER_ADDR)
+
+    if data_connection == 0:
+        print("-"*100)
+        print("CONNECTED TO SERVER!!")
+        print("-"*100)
+
+    else:
+        print("-"*100)
+        print("**FAILED** TO CONNECT!!")
+        print("-"*100)
 
     cfg = []
    
     cam = IntelCamera(cfg)
     anno_idx = 0
 
-
-
-    while(1):
-
         
         
         
+    rgb_file, depth_file = cam.stream()
+    cv2.imshow('image',rgb_file)
+
+
+    key = cv2.waitKey(0)
+
+    
+
+    if key == ord('p'):
+        anno_idx += 1
+        before = time.time()
+        
+        final_file, suction_normal, suction_point = inference(1,anno_idx)
+
+        after = time.time()
+        print('running_time:' , after-before)
+    
+        img_final = cv2.imread(final_file, cv2.IMREAD_COLOR)
+
+        print("suction_normal_out:", suction_normal)
+        print("suction_point_out:", suction_point)
+    
+        cv2.imshow("image1", img_final)
+        
+        cv2.waitKey()
+        cv2.destroyAllWindows()
+        
+        msg = str(suction_point[0])+','+str(suction_point[1])+','+str(suction_point[2])+','+str(suction_normal[0])+','+str(suction_normal[1])+','+str(suction_normal[2])
+        DATASock.send(msg.encode())
+        DATASock.close()
+
+    if key == ord('c'):
+
         rgb_file, depth_file = cam.stream()
         cv2.imshow('image',rgb_file)
 
+    
 
-        key = cv2.waitKey(0)
-
-        
-
-        if key == ord('p'):
-            anno_idx += 1
-            before = time.time()
-            
-            final_file = inference(1,anno_idx)
-
-            after = time.time()
-            print('running_time:' , after-before)
-        
-            img_final = cv2.imread(final_file, cv2.IMREAD_COLOR)
-        
-            cv2.imshow("image1", img_final)
-           
-            cv2.waitKey()
-            cv2.destroyAllWindows()
-
-        if key == ord('c'):
-
-            rgb_file, depth_file = cam.stream()
-            cv2.imshow('image',rgb_file)
-
-        
-
-        if key == ord('e'):
-            exit()
-      
+    if key == ord('e'):
+        DATASock.close()
+        exit()
+    
     
   
 
