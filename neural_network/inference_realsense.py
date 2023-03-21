@@ -81,6 +81,74 @@ if CHECKPOINT_PATH is not None and os.path.isfile(CHECKPOINT_PATH):
 
     EPOCH_CNT = checkpoint['epoch']
 
+def collision_avoidance(point, normal, cam_instance):
+
+    cam2marker = cam_instance.stored_cam2marker
+    marker2cam = np.linalg.inv(cam2marker)
+    point = np.array([*point, 1]).T
+
+
+    ## suction point defined from the marker frame
+    point_marker = np.dot(marker2cam, point)
+    print("point_marker:", point_marker)
+    ## all the part of the bin is defined from the marker frame
+    ## ex) upper means the bin part on the -y area of the marker frame
+    ## ex) left means the bin part on the +x area of the marker frame
+
+    ## suction normal defined from the camera frame
+
+    ## point on the upper 
+    if point_marker[1] < -cam_instance.origin_to_corner_y + 0.05:
+        print("--------------upper part--------------")
+        theta = np.math.atan2(normal[0], 0)
+        print("normal:", normal)
+        print('theta:', theta)
+        if np.abs(theta) < np.math.pi/2:
+            print("REFINING NORMAL...")
+            normal = np.array([0, 0, -1])
+
+    ## point on the bottom 
+    elif point_marker[1] > cam_instance.H-cam_instance.origin_to_corner_y - 0.05:
+        print("--------------bottom part--------------")
+        theta = np.math.atan2(normal[0], 0)
+        print("normal:", normal)
+        print('theta:', theta)
+        if np.abs(theta) < np.math.pi/2:
+            print("REFINING NORMAL...")
+            normal = np.array([0, 0, -1])
+
+    ## point on the left
+    elif point_marker[0] > cam_instance.W-cam_instance.origin_to_corner_x - 0.05:
+        print("--------------left part--------------")
+        theta = np.math.atan2(normal[1], 1)
+        print("normal:", normal)
+        print('theta:', theta)
+        if np.abs(theta) < np.math.pi/2:
+            print("REFINING NORMAL...")
+            normal = np.array([0, 0, -1])
+
+    ## point on the right
+    elif point_marker[0] < -cam_instance.origin_to_corner_x + 0.05:
+        print("--------------right part--------------")
+        theta = np.math.atan2(normal[1], 1)
+        print("normal:", normal)
+        print('theta:', theta)
+        if np.abs(theta) < np.math.pi/2:
+            print("REFINING NORMAL...")
+            normal = np.array([0, 0, -1])
+
+    ## prevent grasping the bin floor
+    if  point[2] > 0.92:
+        print("DETECTION ON THE FLOOR!!!!!!!!!")
+        point[2] = 0.85
+
+        normal = np.array([0, 0, -1])
+
+    point = point[:3]
+
+
+    return point, normal
+
 def uniform_kernel(kernel_size):
     kernel = np.ones((kernel_size, kernel_size), dtype=np.float32)
     # center = kernel_size // 2
@@ -441,6 +509,8 @@ if __name__ == '__main__':
         print("suction_normal_out:", suction_normal)
         print("suction_point_out:", suction_point)
     
+        suction_point, suction_normal = collision_avoidance(suction_point, suction_normal, cam)
+
         cv2.imshow("image1", img_final)
         
         cv2.waitKey()
