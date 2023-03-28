@@ -81,6 +81,32 @@ if CHECKPOINT_PATH is not None and os.path.isfile(CHECKPOINT_PATH):
 
     EPOCH_CNT = checkpoint['epoch']
 
+def check_inside(suctions, cam_instance):
+    is_inside = False
+    candidate_id = 0
+
+    cam2marker = cam_instance.stored_cam2marker
+    marker2cam = np.linalg.inv(cam2marker)
+
+    candidate_xyz = suctions[candidate_id, 4:7]
+    point = np.array([*candidate_xyz, 1]).T
+
+    point_marker = np.dot(marker2cam, point)
+    while is_inside == False:
+
+        if ((point_marker[0] > -cam.origin_to_corner_x) & (point_marker[0] < (cam.W - cam.origin_to_corner_x))) & ((point_marker[1] > -cam.origin_to_corner_y) & (point_marker[1] < (cam.H-cam.origin_to_corner_y))):
+            is_inside = True
+            print("INSIDE!")
+        else:
+            candidate_id += 1
+            candidate_xyz = suctions[candidate_id, 4:7]
+            point = np.array([*candidate_xyz, 1]).T
+
+            point_marker = np.dot(marker2cam, point)
+            print("OUTSIDE!")
+
+    return candidate_id
+
 def collision_avoidance(point, normal, cam_instance):
 
     cam2marker = cam_instance.stored_cam2marker
@@ -100,17 +126,17 @@ def collision_avoidance(point, normal, cam_instance):
     ## point on the upper 
     if point_marker[1] < -cam_instance.origin_to_corner_y + 0.05:
         print("--------------upper part--------------")
-        theta = np.math.atan2(normal[0], 0)
+        theta = np.math.atan2(normal[0], normal[1])
         print("normal:", normal)
         print('theta:', theta)
-        if np.abs(theta) < np.math.pi/2:
+        if np.abs(theta) > np.math.pi/2:
             print("REFINING NORMAL...")
             normal = np.array([0, 0, -1])
 
     ## point on the bottom 
     elif point_marker[1] > cam_instance.H-cam_instance.origin_to_corner_y - 0.05:
         print("--------------bottom part--------------")
-        theta = np.math.atan2(normal[0], 0)
+        theta = np.math.atan2(normal[0], normal[1])
         print("normal:", normal)
         print('theta:', theta)
         if np.abs(theta) < np.math.pi/2:
@@ -120,17 +146,17 @@ def collision_avoidance(point, normal, cam_instance):
     ## point on the left
     elif point_marker[0] > cam_instance.W-cam_instance.origin_to_corner_x - 0.05:
         print("--------------left part--------------")
-        theta = np.math.atan2(normal[1], 1)
+        theta = np.math.atan2(normal[1], normal[0])
         print("normal:", normal)
         print('theta:', theta)
-        if np.abs(theta) < np.math.pi/2:
+        if np.abs(theta) > np.math.pi/2:
             print("REFINING NORMAL...")
             normal = np.array([0, 0, -1])
 
     ## point on the right
     elif point_marker[0] < -cam_instance.origin_to_corner_x + 0.05:
         print("--------------right part--------------")
-        theta = np.math.atan2(normal[1], 1)
+        theta = np.math.atan2(normal[1], normal[0])
         print("normal:", normal)
         print('theta:', theta)
         if np.abs(theta) < np.math.pi/2:
@@ -286,7 +312,6 @@ def get_suction_from_heatmap(depth_img, heatmap, camera_info):
 
     print("suction_arr")
     print(np.shape(suction_arr))
-    print(suction_arr[:, 0])
 
     # print("suction_normals : ", suction_normals[0])
     # print("suction_points : ", suction_points[0])
@@ -422,6 +447,8 @@ def inference_one_view(rgb_file, depth_file, scene_idx, anno_idx):
         final_img = np.zeros_like(heatmap)
   
         drawGaussian(final_img, [idx1[0], idx0[0]], suctions[0, 0], 3)
+        # for i in range(suctions.shape[0]):
+        #     drawGaussian(final_img, [idx1[i], idx0[i]], suctions[i, 0], 3)
  
         
         final_img *= 255
@@ -440,7 +467,7 @@ def inference_one_view(rgb_file, depth_file, scene_idx, anno_idx):
         img_final = cv2.imread(final_file, cv2.IMREAD_COLOR)
 
 
-        return final_file, suction_normal, suction_point
+        return final_file, suctions, idx1, idx0
         
 
 
@@ -451,9 +478,9 @@ def inference(scene_idx, anno_idx):
 
     anno_idx = 1
 
-    final_file, suction_normal, suction_point = inference_one_view(rgb_file, depth_file, scene_idx, anno_idx)
+    final_file, suctions, idx1, idx0 = inference_one_view(rgb_file, depth_file, scene_idx, anno_idx)
 
-    return final_file, suction_normal, suction_point
+    return final_file, suctions, idx1, idx0
 
 
 
@@ -492,25 +519,32 @@ if __name__ == '__main__':
 
 
     key = cv2.waitKey(0)
-
     
 
     if key == ord('p'):
+        cam.define_workspace()
         anno_idx += 1
         before = time.time()
         
-        final_file, suction_normal, suction_point = inference(1,anno_idx)
+        ## suctions
+        ## (1024, 7) --> (1024 candidates with (score, x, y, z, nx, ny, nz) information)
+        final_file, suctions, idx1, idx0 = inference(1,anno_idx)
 
         after = time.time()
         print('running_time:' , after-before)
     
         img_final = cv2.imread(final_file, cv2.IMREAD_COLOR)
 
-        print("suction_normal_out:", suction_normal)
-        print("suction_point_out:", suction_point)
-    
-        suction_point, suction_normal = collision_avoidance(suction_point, suction_normal, cam)
+        candidate_id = check_inside(suctions, cam)
 
+        print(idx1[0], idx0[0])
+
+        # print("suction_normal_out:", suction_normal)
+        # print("suction_point_out:", suction_point)
+    
+        # suction_point, suction_normal = collision_avoidance(suction_point, suction_normal, cam)
+        suction_point, suction_normal = collision_avoidance(suctions[candidate_id, 4:7], suctions[candidate_id, 1:4], cam)
+        cv2.circle(img_final, (idx1[candidate_id], idx0[candidate_id]), 3, (0, 250, 0), 2)  
         cv2.imshow("image1", img_final)
         
         cv2.waitKey()

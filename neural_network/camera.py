@@ -1,6 +1,6 @@
 ##############################################################
 #   camera.py
-#   version: 3.1.0 (edited in 2022.11.09)
+#   version: 3.2.1 (edited in 2023.03.10)
 ##############################################################
 import sys
 import os
@@ -45,7 +45,6 @@ class IntelCamera:
         else:
             self.config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
             self.config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-          
 
         self.profile = self.pipeline.start(self.config)
         depth_sensor = self.profile.get_device().first_depth_sensor()
@@ -59,7 +58,7 @@ class IntelCamera:
         self.ppy = self.color_intrinsic.ppy
 
         if self.device_product_line == 'L500':
-            self.intrinsic_o3d = o3d.camera.PinholeCameraIntrinsic(640, 480, self.fx, self.fy, self.ppx, self.ppy)
+            self.intrinsic_o3d = o3d.camera.PinholeCameraIntrinsic(960, 540, self.fx, self.fy, self.ppx, self.ppy)
         
         else:
             self.intrinsic_o3d = o3d.camera.PinholeCameraIntrinsic(640, 480, self.fx, self.fy, self.ppx, self.ppy)
@@ -111,8 +110,8 @@ class IntelCamera:
     def draw_workspace(self):
         self.orig_stored_cam2marker = copy.deepcopy(self.stored_cam2marker)
         marker_frame_center = self.stored_cam2marker[:3, 3]
-        marker_frame_center[0] = marker_frame_center[0] + 0.05
-        marker_frame_center[1] = marker_frame_center[1] - 0.025
+        marker_frame_center[0] = marker_frame_center[0] + self.origin_to_corner_x
+        marker_frame_center[1] = marker_frame_center[1] - self.origin_to_corner_y
         pixel = (np.dot(self.camera_mat, marker_frame_center)/marker_frame_center[-1])[:2]
         pixel = pixel.astype(np.int64)
         pixel = np.reshape(pixel, (2,))
@@ -149,8 +148,6 @@ class IntelCamera:
         cv2.line(img=self.color_image, pt1=pixel_4th, pt2=pixel_length, color=(0, 0, 255), thickness=2)
 
         self.stored_cam2marker = self.orig_stored_cam2marker
-        
-        return pixel_width,pixel_length
 
     def detectAruco(self):
         if self.saw_aruco != True:
@@ -207,26 +204,47 @@ class IntelCamera:
         cv2.imwrite("AruCo Marker.png", marker_generated) # Save image file
         cv2.waitKey() # Maintain until keyboard input
 
-    def define_workspace(self, cfg_path):
+    def create_charuco_marker(self):
+        # Define the dimensions of the Charuco board
+        num_squares_x = 5
+        num_squares_y = 7
+        square_length = 0.04  # meters
+        marker_length = 0.03  # meters
+
+        # Create the Charuco board
+        dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_250)
+        board = cv2.aruco.CharucoBoard_create(num_squares_x, num_squares_y, square_length, marker_length, dictionary)
+
+        # Generate a Charuco marker
+        board_img = board.draw((500, 600), 10, 30)
+
+        # Display the marker
+        cv2.imshow('Charuco Marker', board_img)
+        cv2.imwrite("Charuco Marker.png", board_img) # Save image file
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    def define_workspace(self):
         if self.saw_yaml != True:
-            ref_path = os.getcwd()
             self.contents = 0
 
-            with open(cfg_path) as f:
-                workspace_cfg = yaml.load(f, Loader=yaml.FullLoader)
+            cfg_path ='/home/hand-eye/catkin_ws/src/suction_net_ros/config/workspace.yml'
+
+            with open(cfg_path) as f:   
+                self.workspace_cfg = yaml.load(f, Loader=yaml.FullLoader)
                 self.saw_yaml = True
-                self.W = workspace_cfg["width"]
-                self.H = workspace_cfg["height"]
-                self.stored_cam2marker = workspace_cfg['cam2marker']
+                self.W = self.workspace_cfg['SKKU']["width"]
+                self.H = self.workspace_cfg['SKKU']["height"]
+                self.origin_to_corner_x = self.workspace_cfg['SKKU']['origin_to_corner_x']
+                self.origin_to_corner_y = self.workspace_cfg['SKKU']['origin_to_corner_y']
+                self.stored_cam2marker = self.workspace_cfg['SKKU']['cam2marker']
                 self.stored_cam2marker = np.reshape(self.stored_cam2marker, (4, 4))
 
         self.draw_workspace()
-
-        
                     
     def crop_points(self):
 
-        self.define_workspace(cfg_path = '/home/robot/3d_camera/config/workspace.yml')
+        self.define_workspace()
 
         R = self.stored_cam2marker[:3, :3]
         self.tvecs = self.stored_cam2marker[:3, 3]
@@ -237,10 +255,10 @@ class IntelCamera:
         H_inv = np.concatenate((H_inv, np.array([[0, 0, 0, 1]])), axis = 0)
         self.pcd.transform(H_inv)
         self.xyz = np.asarray(self.pcd.points)
-        valid_idx = np.where(((self.xyz[:, 0] > -0.03) & (self.xyz[:, 0] < (self.W - 0.03))) & ((self.xyz[:, 1] > -0.02) & (self.xyz[:, 1] < (self.H-0.02))) & (self.xyz[:, 2] > self.z_min) & (self.xyz[:, 2] < 0.3))[0]
+        valid_idx = np.where(((self.xyz[:, 0] > -self.origin_to_corner_x) & (self.xyz[:, 0] < (self.W - self.origin_to_corner_x))) & ((self.xyz[:, 1] > -self.origin_to_corner_y) & (self.xyz[:, 1] < (self.H-self.origin_to_corner_y))) & (self.xyz[:, 2] > self.z_min) & (self.xyz[:, 2] < 0.3))[0]
 
-        # self.pcd = self.select_by_index(self.pcd, valid_idx)
-        self.pcd = self.pcd.select_by_index(valid_idx)
+        self.pcd = self.select_by_index(self.pcd, valid_idx)
+        # self.pcd = self.pcd.select_by_index(valid_idx)
 
         ## transform point cloud to original frame (camera frame)
         self.pcd.transform(self.stored_cam2marker)
@@ -312,10 +330,8 @@ class KinectCamera(IntelCamera):
 
         return self.color_image, self.depth_image
 
+'''
 if __name__ == '__main__':
-
-
-    
 
     # cam = IntelCamera(cfg=[])
     # cam.create_aruco_marker(aruco.DICT_6X6_50)
@@ -334,24 +350,17 @@ if __name__ == '__main__':
     vis = o3d.visualization.Visualizer()
     vis.create_window("Point Clouds", width=848, height=480)
     added = True
-    print(cam.camera_mat)
-
-
-
-   
-
-    i = 0
 
     while 1:
         rgb_img, depth_img = cam.stream()
-        # cam.detectAruco()
+        cam.detectAruco()
 
         # print(cam.cam2marker)
         # print(np.average(depth_img*0.00025))
-        xyz = cam.generate(depth_img)
+        # xyz = cam.generate(depth_img)
         # cam.detectCharuco()
         # xyz = cam.cropPoints()
-        pcd.points = o3d.utility.Vector3dVector(xyz)
+        # pcd.points = o3d.utility.Vector3dVector(xyz)
 
         ## visualize rgb and depth image
         cv2.imshow("rgb", rgb_img)
@@ -359,17 +368,13 @@ if __name__ == '__main__':
         cv2.waitKey(1)
 
         # visualize point cloud caculated from the depth image
-        if added == True:
-            vis.add_geometry(pcd)
-            added = False
-        vis.update_geometry(pcd)
-        vis.poll_events()
-        vis.update_renderer()
-        if i == 1:
-            cv2.imwrite('/home/hand-eye/Downloads/a/intel/image1.png',rgb_img)
-            cv2.imwrite('/home/hand-eye/Downloads/a/intel/image2.png',depth_img)
-
-    
-        i += 1
-
-    
+        # if added == True:
+            # vis.add_geometry(pcd)
+            # added = False
+        # vis.update_geometry(pcd)
+        # vis.poll_events()
+        # vis.update_renderer()
+'''
+if __name__ == '__main__':
+    cam = IntelCamera(cfg=[])
+    cam.create_charuco_marker()
